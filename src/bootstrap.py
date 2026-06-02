@@ -1,13 +1,22 @@
 """Bootstrap script for initializing the basic services.
 """
+
+# Standard library imports
+import json
 import logging
 import os
+from time import time
 
 import dotenv
 from logging.config import dictConfig
 
+# Third-party imports
+from kafka import KafkaProducer
+
 dotenv.load_dotenv()  # Load environment variables from .env file
 LOG_DIR = os.getenv('LOG_DIR', 'logs')  # Default to 'logs' if not set
+KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:19092')
+KAFKA_STOCK_TOPIC_NAME = os.getenv('KAFKA_STOCK_TOPIC_NAME', 'stock_eod_ohlc_volume')
 
 
 # Define your centralized logging configuration
@@ -49,19 +58,51 @@ LOGGING_CONFIG = {
     },
 }
 
-class DatabaseService:
-    def execute(self):
-        return "Data retrieved"
+    
+class KafkaProducerService:
+    def __init__(self):
+        pass
+        
+    def __enter__(self):
+        # Open resource when entering 'with' block
+        self.producer = KafkaProducer(
+            api_version=(2, 6, 0),
+            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+            value_serializer=lambda v: json.dumps(v).encode(' utf-8')
+            )
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Clean up resource when exiting 'with' block
+        self.producer.flush()
+        self.producer.close()
+    
+    def send(self, topic: str, value) -> None:
+        self.producer.send(topic, value)
+
 
 class ServiceContainer:
     """Dependency Injection Container."""
     def __init__(self, service_name: str):
-        self.db = DatabaseService()
-        self.root_logger = logging.getLogger(service_name)
+        self.service_name = service_name
+        dictConfig(LOGGING_CONFIG)
+        self.root_logger = logging.getLogger(self.service_name)
+        self.kafka_producer = KafkaProducerService()
+        
+    def __enter__(self) -> ServiceContainer:
+        # Open resource when entering 'with' block   
+        self.kafka_producer.__enter__()  # Initialize KafkaProducerService
+        self.root_logger.info(f"Bootstrapping application for service: {self.service_name}")
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.kafka_producer.__exit__(exc_type, exc_val, exc_tb)
+        self.root_logger.info(f"Shutting down application for service: {self.service_name}")
 
-def bootstrap_application(service_name: str) -> ServiceContainer:
-    """Initializes logging and services."""
-    dictConfig(LOGGING_CONFIG)
-    service_container = ServiceContainer(service_name)
-    service_container.root_logger.info(f"Bootstrapping application for service: {service_name}")
-    return service_container
+# if __name__ == "__main__":
+#     with ServiceContainer(service_name="bootstrap_test") as service_container:
+#         producer = service_container.kafka_producer.producer
+#         message = {"user": "Alice", "status": "learning_redpanda", "timestamp": time()}
+#         future = producer.send('foobar', message)
+#         result = future.get(timeout=10)
+#         producer.flush()
+#         print("Message sent to Kafka topic 'foobar' with result: ", result)

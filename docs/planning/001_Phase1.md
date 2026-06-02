@@ -6,7 +6,7 @@
 
 ## Redpanda
 
-- Follow the documentation [https://docs.redpanda.com/streaming/current/get-started/quick-start/]
+- Follow the documentation [https://docs.redpanda.com/labs/docker-compose/single-broker/]
 
 ### Kafka Alternative
 

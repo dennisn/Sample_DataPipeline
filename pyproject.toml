@@ -1,0 +1,36 @@
+[tool.black]
+# Set the maximum line length (the default is 88)
+line-length = 120
+
+# Target specific Python versions when formatting
+target-version = ["py312", "py313", "py314"]
+
+# Include specific file extensions or patterns (uses regular expressions)
+include = '\.pyi?$'
+
+# Explicitly exclude specific directories or files from being formatted
+exclude = '''
+/(
+    \.git
+
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+
+  | \.venv
+  | _build
+  | buck-out
+
+  | build
+  | dist
+)/
+'''
+
+# Enable or disable parsing of files in 'preview' style mode
+preview = false
+
+# Keep or force trailing commas where possible (true by default)
+skip-magic-trailing-comma = false
+
+# Do not normalize string quotes to double quotes (false by default)
+skip-string-normalization = false
