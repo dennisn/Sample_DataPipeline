@@ -6,8 +6,8 @@ It can be extended to get data for other stocks as well.
 
 # Standard library imports
 from dataclasses import dataclass, asdict
-import json
 import os
+from pathlib import Path
 import pprint
 import requests
 import time
@@ -19,6 +19,7 @@ from kafka import KafkaProducer
 import bootstrap
 
 # Constants
+SERVICE_NAME = Path(__file__).stem
 ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
 
 @dataclass
@@ -84,7 +85,7 @@ def _print_daily_data(ts_data: dict) -> None:
         pprint.pprint(f"{date}= {ts_data[date]}", width=150)
 
 if __name__ == "__main__":
-    with bootstrap.ServiceContainer(service_name="stock_service") as service_container:
+    with bootstrap.ServiceContainer(service_name=SERVICE_NAME) as service_container:
         if (service_container.kafka_producer is None):
             raise RuntimeError("KafkaProducerService is not initialized.")
         
