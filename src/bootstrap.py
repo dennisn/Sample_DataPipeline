@@ -2,6 +2,7 @@
 """
 
 # Standard library imports
+from datetime import datetime, date
 import json
 import logging
 import os
@@ -68,13 +69,19 @@ class KafkaProducerService:
         self.producer = KafkaProducer(
             api_version=(2, 6, 0),
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            value_serializer=lambda v: json.dumps(v).encode(' utf-8')
+            value_serializer=lambda v: json.dumps(v, default=self.json_serial).encode(' utf-8')
             )
         
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Clean up resource when exiting 'with' block
         self.producer.flush()
         self.producer.close()
+    
+    def json_serial(self, obj: object) -> str:
+        """JSON serializer for objects not serializable by default json code"""
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        raise TypeError(f"Type {type(obj)} not serializable")
     
     def send(self, topic: str, value) -> None:
         self.producer.send(topic, value)
