@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import datetime
 
 # Third-party imports
-import faust
 
 @dataclass
 class CryptoTradeData:
@@ -15,10 +14,10 @@ class CryptoTradeData:
     quantity: float
 
 @dataclass
-class CryptoVwap(faust.Record, serializer='json'):
+class CryptoVwap():
     symbol: str
     vwap: float
     total_volume: float
-    window_start: str
-    window_end: str
+    window_start: datetime.datetime
+    window_end: datetime.datetime
     
