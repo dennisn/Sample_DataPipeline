@@ -2,7 +2,7 @@
 
 1. Spin up **Redpanda** using Docker Desktop.
 2. Write a Python script that connects to the **Coinbase Pro WebSocket** (or Binance) for `BTC-USD` tickers and prints them to your console.
-3. Modify that script to route those JSON messages directly into a Redpanda topic named `raw-crypto-trades`.
+3. Modify that script to route those JSON messages directly into a Redpanda topic named `crypto_trades`.
 
 ## Redpanda
 

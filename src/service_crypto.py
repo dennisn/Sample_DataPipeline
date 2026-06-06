@@ -5,10 +5,9 @@ This independent script is used to get real-time data for BTCUSDT (Bitcoin/USDT 
 # Standard library imports
 import asyncio
 from asyncio.log import logger
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 import datetime
 import json
-import logging
 import os
 from pathlib import Path
 import random
@@ -17,10 +16,10 @@ import time
 import websockets
 
 # Third-party imports
-from kafka import KafkaProducer
 
 # Local imports
 import bootstrap
+from data_defs import CryptoTradeData
 
 # Constants
 SERVICE_NAME = Path(__file__).stem
@@ -28,15 +27,6 @@ SERVICE_NAME = Path(__file__).stem
 BINANCE_WS_BASE_URL = os.getenv('BINANCE_WS_BASE_URL', 'wss://stream.binance.com:9443/ws/')
 BINANCE_WS_INITIAL_DELAY = float(os.getenv('BINANCE_WS_INITIAL_DELAY', '1.0'))
 BINANCE_WS_MAX_DELAY = float(os.getenv('BINANCE_WS_MAX_DELAY', '60.0'))
-
-KAFKA_CRYPTO_TRADES_TOPIC_NAME = os.getenv('KAFKA_CRYPTO_TRADES_TOPIC_NAME', 'crypto_trades')
-
-@dataclass
-class BinanceTradeData:
-    symbol: str
-    event_time: datetime.datetime
-    price: float
-    quantity: float
 
 class BinanceTradeDataSender:
     """Helper class to send BinanceTradeData to Kafka topic in batches."""
@@ -47,7 +37,7 @@ class BinanceTradeDataSender:
         self.total_messages_sent = 0
         self.batch_no = 0
 
-    async def send_biance_trade_data_to_kafka(self, trade_data_batch: list[BinanceTradeData]) -> None:
+    async def send_biance_trade_data_to_kafka(self, trade_data_batch: list[CryptoTradeData]) -> None:
         """Send a batch of BinanceTradeData items to Kafka topic.
 
         Args:
@@ -124,7 +114,7 @@ class BinanceTradeDataStreamer:
             if symbol and price and quantity and eventTime:
                 self.logger.debug(f"{symbol} Last Price: ${price}, Quantity: {quantity}, Event Time: {local_dt} / {utc_dt}")
                 self.total_messages_received += 1
-                trade_data = BinanceTradeData(symbol=symbol, event_time=utc_dt, price=price, quantity=quantity)
+                trade_data = CryptoTradeData(symbol=symbol, event_time=utc_dt, price=price, quantity=quantity)
                 await queue.put(trade_data)
         except json.JSONDecodeError as exc:
             self.logger.error(f"Failed to decode message as JSON", exc_info=True)
@@ -181,7 +171,7 @@ async def main(service_container: bootstrap.ServiceContainer):
     binance_streamer = BinanceTradeDataStreamer(service_container)
     producer_tasks = [asyncio.create_task(binance_streamer.stream_binance_ticker(queue, 'btcusdt'))]
     
-    binance_batch_sender = BinanceTradeDataSender(service_container, KAFKA_CRYPTO_TRADES_TOPIC_NAME)
+    binance_batch_sender = BinanceTradeDataSender(service_container, bootstrap.KAFKA_CRYPTO_TRADES_TOPIC_NAME)
     consumer_tasks = [asyncio.create_task(binance_batch_sender.process_binance_trade_data(queue))]
     
     try:

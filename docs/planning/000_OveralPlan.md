@@ -58,12 +58,12 @@ To make this a killer learning experience, build it in three distinct phases rat
 
 1. Spin up **Redpanda** using Docker Desktop.
 2. Write a Python script that connects to the **Coinbase Pro WebSocket** (or Binance) for `BTC-USD` tickers and prints them to your console.
-3. Modify that script to route those JSON messages directly into a Redpanda topic named `raw-crypto-trades`.
+3. Modify that script to route those JSON messages directly into a Redpanda topic named `crypto_trades`.
 
 ### Phase 2: The Processing Layer
 
 1. Write a consumer script (using Flink or Faust).
-2. Read from `raw-crypto-trades`.
+2. Read from `crypto_trades`.
 3. Implement a **Tumbling Window** (e.g., group the data into strict 1-minute blocks) and calculate the Volume Weighted Average Price (VWAP) for that minute.
 4. Stream those calculated metrics into a new topic called `processed-crypto-metrics`.
 

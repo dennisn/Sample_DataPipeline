@@ -18,7 +18,8 @@ dotenv.load_dotenv()  # Load environment variables from .env file
 LOG_DIR = os.getenv('LOG_DIR', 'logs')  # Default to 'logs' if not set
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:19092')
 KAFKA_STOCK_TOPIC_NAME = os.getenv('KAFKA_STOCK_TOPIC_NAME', 'stock_eod_ohlc_volume')
-
+KAFKA_CRYPTO_TRADES_TOPIC_NAME = os.getenv('KAFKA_CRYPTO_TRADES_TOPIC_NAME', 'crypto_trades')
+KAFKA_CRYPTO_VWAP_TOPIC_NAME = os.getenv('KAFKA_CRYPTO_VWAP_TOPIC_NAME', 'crypto_vwap')
 
 # Define your centralized logging configuration
 LOGGING_CONFIG = {
