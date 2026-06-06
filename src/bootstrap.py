@@ -12,7 +12,7 @@ import dotenv
 from logging.config import dictConfig
 
 # Third-party imports
-from kafka import KafkaProducer
+from kafka import KafkaProducer, KafkaConsumer
 
 dotenv.load_dotenv()  # Load environment variables from .env file
 LOG_DIR = os.getenv('LOG_DIR', 'logs')  # Default to 'logs' if not set
@@ -60,14 +60,14 @@ LOGGING_CONFIG = {
     },
 }
 
-    
+
 class KafkaProducerService:
     def __init__(self):
         pass
         
     def __enter__(self):
         # Open resource when entering 'with' block
-        self.producer = KafkaProducer(
+        self._producer = KafkaProducer(
             api_version=(2, 6, 0),
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
             value_serializer=lambda v: json.dumps(v, default=self.json_serial).encode(' utf-8')
@@ -75,8 +75,8 @@ class KafkaProducerService:
         
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Clean up resource when exiting 'with' block
-        self.producer.flush()
-        self.producer.close()
+        self._producer.flush()
+        self._producer.close()
     
     def json_serial(self, obj: object) -> str:
         """JSON serializer for objects not serializable by default json code"""
@@ -85,8 +85,32 @@ class KafkaProducerService:
         raise TypeError(f"Type {type(obj)} not serializable")
     
     def send(self, topic: str, value) -> None:
-        self.producer.send(topic, value)
+        self._producer.send(topic, value)
 
+
+class KafkaConsumerService:
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        # Open resource when entering 'with' block
+        self._consumer = KafkaConsumer(
+            api_version=(2, 6, 0),
+            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+            auto_offset_reset='earliest',
+            enable_auto_commit=True,
+            )
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Clean up resource when exiting 'with' block
+        self._consumer.close()
+        
+    def subscribe(self, topic: str):
+        self._consumer.subscribe(topic)
+        
+    def poll(self, timeout_ms: int):
+        return self._consumer.poll(timeout_ms)
+    
 
 class ServiceContainer:
     """Dependency Injection Container."""
@@ -95,15 +119,18 @@ class ServiceContainer:
         dictConfig(LOGGING_CONFIG)
         self.root_logger = logging.getLogger(self.service_name)
         self.kafka_producer = KafkaProducerService()
+        self.kafka_consumer = KafkaConsumerService()
         
     def __enter__(self) -> ServiceContainer:
-        # Open resource when entering 'with' block   
-        self.kafka_producer.__enter__()  # Initialize KafkaProducerService
+        # Open resource when entering 'with' block
+        self.kafka_consumer.__enter__()
+        self.kafka_producer.__enter__()
         self.root_logger.info(f"Bootstrapping application for service: {self.service_name}")
         return self
         
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.kafka_producer.__exit__(exc_type, exc_val, exc_tb)
+        self.kafka_consumer.__exit__(exc_type, exc_val, exc_tb)
         self.root_logger.info(f"Shutting down application for service: {self.service_name}")
 
 # if __name__ == "__main__":

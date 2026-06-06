@@ -60,7 +60,7 @@ def get_daily_stock_data_as_objects(symbol: str, timeout_seconds: int = 5) -> li
         stock_data_list.append(stock_data)
     return stock_data_list
 
-def send_daily_stock_data_to_kafka(producer: KafkaProducer, topic_name: str, stock_data_list: list[StockDailyData], batch_size: int = 15) -> int:
+def send_daily_stock_data_to_kafka(producer: bootstrap.KafkaProducerService, topic_name: str, stock_data_list: list[StockDailyData], batch_size: int = 15) -> int:
     """Send daily stock data to Kafka topic in batches."""
     total_messages_sent = 0
     batch_no = 0
@@ -94,10 +94,10 @@ if __name__ == "__main__":
         stock_data_list = get_daily_stock_data_as_objects(symbol='SPY')
         try:
             total_messages_sent = send_daily_stock_data_to_kafka(
-                producer=service_container.kafka_producer.producer,
+                producer=service_container.kafka_producer,
                 topic_name=bootstrap.KAFKA_STOCK_TOPIC_NAME,
                 stock_data_list=stock_data_list
             )
             logger.info(f"Total messages sent to Kafka: {total_messages_sent}")
-        except Exception as e:
-            logger.error(f"An error occurred while sending: {e}")
+        except Exception:
+            logger.error(f"An error occurred while sending", exc_info=True)

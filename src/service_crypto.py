@@ -32,7 +32,7 @@ class BinanceTradeDataSender:
     """Helper class to send BinanceTradeData to Kafka topic in batches."""
     def __init__(self, service_container: bootstrap.ServiceContainer, topic_name: str):
         self.logger = service_container.root_logger
-        self.kafka_producer = service_container.kafka_producer.producer
+        self.kafka_producer = service_container.kafka_producer
         self.topic_name = topic_name
         self.total_messages_sent = 0
         self.batch_no = 0

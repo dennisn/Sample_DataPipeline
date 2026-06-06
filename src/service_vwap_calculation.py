@@ -3,6 +3,7 @@
 # Standard library imports
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+import json
 import os
 import pathlib
 
@@ -23,11 +24,36 @@ class TumblingWindowVWAPCalculator:
     """Helper class to calculate VWAP using tumbling windows."""
     def __init__(self, service_contaner: bootstrap.ServiceContainer):
         self.logger = service_container.root_logger
+        self.consumer = service_container.kafka_consumer
         self.producer = service_container.kafka_producer
         # State Structure: { symbol: { window_start_time: { 'total_value': float, 'total_volume': float } } }
         self.windows = defaultdict[str, defaultdict[datetime, dict[str, float]]](lambda: defaultdict(lambda: {'total_value': 0.0, 'total_volume': 0.0}))
         # Keeps track of the latest event time per symbol to trigger window closing
         self.latest_event_time = defaultdict[str, datetime](lambda: datetime.min.replace(tzinfo=timezone.utc))
+        
+    def run_service(self):
+        """Continuously polling the topic & calculate VWAP"""
+        self.logger.info(f"Streaming calculation started. Listening to topic '{bootstrap.KAFKA_CRYPTO_TRADES_TOPIC_NAME}'...")
+        self.consumer.subscribe(bootstrap.KAFKA_CRYPTO_TRADES_TOPIC_NAME)
+        
+        while True:
+            msg_pack  = self.consumer.poll(timeout_ms=1000)
+            if not msg_pack:
+                continue
+            
+            try:
+                for tp, messages in msg_pack.items():
+                    if tp.topic != bootstrap.KAFKA_CRYPTO_TRADES_TOPIC_NAME:
+                        continue
+                    
+                    for msg in messages:
+                        msg_value = json.loads(msg.value.decode('utf-8'))
+                        for payload in msg_value["data"]:
+                            trade_data = CryptoTradeData.from_dict(payload)
+                            self.process_trade(trade_data)
+            except (ValueError, KeyError, TypeError) as parse_err:
+                self.logger.warning(f"Skipping malformed message payload", exc_info=True)
+                continue
         
         
     def get_window_start(self, dt: datetime) -> datetime:
@@ -86,29 +112,11 @@ class TumblingWindowVWAPCalculator:
                 #     logging.error(f"Failed to produce message: {e}")
 
 
-def parse_timestamp(ts_str: str) -> datetime:
-    """Parses standard ISO timestamps into a timezone-aware UTC datetime."""
-    try:
-        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-    except ValueError:
-        return datetime.now(timezone.utc)
-
-
 if __name__ == "__main__":
     with bootstrap.ServiceContainer(service_name=SERVICE_NAME) as service_container:
         vwap_calculator = TumblingWindowVWAPCalculator(service_container)
         
-        # Simulate processing incoming trade data (replace with actual Kafka consumer logic)
-        sample_trades = [
-            CryptoTradeData(symbol='BTCUSDT', event_time=parse_timestamp('2024-06-01T12:00:15Z'), price=30000.0, quantity=0.5),
-            CryptoTradeData(symbol='BTCUSDT', event_time=parse_timestamp('2024-06-01T12:00:45Z'), price=30050.0, quantity=0.3),
-            CryptoTradeData(symbol='BTCUSDT', event_time=parse_timestamp('2024-06-01T12:01:10Z'), price=30100.0, quantity=0.2),
-            CryptoTradeData(symbol='ETHUSDT', event_time=parse_timestamp('2024-06-01T12:00:30Z'), price=2000.0, quantity=1.0),
-            CryptoTradeData(symbol='ETHUSDT', event_time=parse_timestamp('2024-06-01T12:01:20Z'), price=2050.0, quantity=2.0),
-        ]
-        
-        for trade in sample_trades:
-            vwap_calculator.process_trade(trade)
+        try:
+            vwap_calculator.run_service()
+        except KeyboardInterrupt:
+            service_container.root_logger.info("Shutting down gracefully...")
