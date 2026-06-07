@@ -97,7 +97,7 @@ class KafkaConsumerService:
         self._consumer = KafkaConsumer(
             api_version=(2, 6, 0),
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            auto_offset_reset='earliest',
+            auto_offset_reset='latest',
             enable_auto_commit=True,
             )
         

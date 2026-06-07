@@ -2,13 +2,13 @@
 
 # Standard library imports
 from collections import defaultdict
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 import json
-import os
 import pathlib
+import time
 
 # Third-party imports
-from kafka import KafkaProducer
 
 # Local imports
 import bootstrap
@@ -88,7 +88,7 @@ class TumblingWindowVWAPCalculator:
                 vwap = metrics['total_value'] / metrics['total_volume']
                 end_time = start_time + WINDOW_SIZE
                 
-                output_payload = CryptoVwap(
+                vwap_data = CryptoVwap(
                     symbol=symbol,
                     vwap=round(vwap, 4),
                     total_volume=round(metrics['total_volume'], 4),
@@ -97,19 +97,15 @@ class TumblingWindowVWAPCalculator:
                 )
                 
                 # Produce calculation result to Kafka
-                self.logger.info(f"Emitting VWAP for {symbol} [{start_time.strftime('%H:%M:%S')} - {end_time.strftime('%H:%M:%S')}]: {vwap:.2f} with volume {metrics['total_volume']:.4f}")
-                # try:
-                #     producer.produce(
-                #         topic=OUTPUT_TOPIC,
-                #         key=symbol,
-                #         value=json.dumps(output_payload),
-                #         callback=self.delivery_report
-                #     )
-                #     # Poll to trigger delivery callbacks
-                #     producer.poll(0)
-                #     logging.info(f"Emitted VWAP for {symbol} [{start_time.strftime('%M:%S')}]: {vwap:.2f}")
-                # except Exception as e:
-                #     logging.error(f"Failed to produce message: {e}")
+                self.logger.info(f"Emitting VWAP for {symbol} [{start_time.strftime('%H:%M:%S')} - {end_time.strftime('%H:%M:%S')}]: {vwap_data.vwap:.2f} with volume {vwap_data.total_volume:.4f}")
+                try:
+                    payload = {
+                        "timestamp": int(time.time()),
+                        "data": asdict(vwap_data)
+                    }
+                    self.producer.send(bootstrap.KAFKA_CRYPTO_VWAP_TOPIC_NAME, value=payload)
+                except Exception:
+                    self.logger.error(f"An error occurred while sending data to Kafka", exc_info=True)
 
 
 if __name__ == "__main__":
